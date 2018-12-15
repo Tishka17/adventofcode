@@ -17,6 +17,9 @@ cave = """
 # with open("in15.txt") as f:
 #     cave = f.read().splitlines(keepends=False)
 
+BOLD = "\033[1m"
+DIM = "\033[90m"
+NORMAL = "\033[0m"
 
 class Nation(Enum):
     Goblin = "G"
@@ -45,18 +48,21 @@ def sort_units(units: List[Unit]):
     return units.sort(key=lambda u: (u.x, u.y))
 
 
-def print_map(cave: Cave, units: Units):
+def print_map(cave: Cave, units: Units, curent: Unit=None):
     for x, row in enumerate(cave):
         for y, point in enumerate(row):
             for u in units:
                 if u.x == x and u.y == y:
-                    print(u.nation.value, end="")
+                    if u == curent:
+                        print(BOLD+u.nation.value+NORMAL, end="")
+                    else:
+                        print(u.nation.value, end="")
                     break
             else:
-                if isinstance(point,str):
-                    print(point, end="")
+                if isinstance(point, str):
+                    print(DIM+point+NORMAL, end="")
                 else:
-                    print("?", end="")
+                    print(DIM+"?"+NORMAL, end="")
         print()
 
 
@@ -135,5 +141,9 @@ sort_units(units)
 for u in units:
     print(u)
     target, path = find_targets(u, cave, units)
+    if len(path) > 1:
+        u.x, u.y = path[1]
+    print(u)
+    print_map(cave, units, u)
     print(f"{len(path)}:", target)
     print()
