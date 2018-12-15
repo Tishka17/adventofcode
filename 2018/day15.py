@@ -13,13 +13,16 @@ cave = """
 #######
 """.splitlines(keepends=False)
 
-
-# with open("in15.txt") as f:
-#     cave = f.read().splitlines(keepends=False)
+with open("in15.txt") as f:
+    cave = f.read().splitlines(keepends=False)
 
 BOLD = "\033[1m"
 DIM = "\033[90m"
+BLUE = "\033[36m"
+GREEN = "\033[32m"
+RED = "\033[91m"
 NORMAL = "\033[0m"
+
 
 class Nation(Enum):
     Goblin = "G"
@@ -48,21 +51,26 @@ def sort_units(units: List[Unit]):
     return units.sort(key=lambda u: (u.x, u.y))
 
 
-def print_map(cave: Cave, units: Units, curent: Unit=None):
+def print_map(cave: Cave, units: Units, curent: Unit = None, enemy: Unit = None, path: Path=[]):
     for x, row in enumerate(cave):
         for y, point in enumerate(row):
             for u in units:
                 if u.x == x and u.y == y:
                     if u == curent:
-                        print(BOLD+u.nation.value+NORMAL, end="")
+                        print(BOLD + u.nation.value + NORMAL, end="")
+                    elif u == enemy:
+                        print(RED + BOLD + u.nation.value + NORMAL, end="")
                     else:
                         print(u.nation.value, end="")
                     break
             else:
                 if isinstance(point, str):
-                    print(DIM+point+NORMAL, end="")
+                    if (x,y) in path:
+                        print(GREEN + "+" + NORMAL, end="")
+                    else:
+                        print(DIM + point + NORMAL, end="")
                 else:
-                    print(DIM+"?"+NORMAL, end="")
+                    print(BLUE + "?" + NORMAL, end="")
         print()
 
 
@@ -119,7 +127,7 @@ def find_targets(unit: Unit, cave: Cave, units: Units) -> (Optional[Unit], Path)
             res |= use_point(map, new_points, enemy, units, targets, x, y - 1, path)
         points = new_points
 
-    print_map(map, units)
+    # print_map(map, units, u)
     # select target
     selected_targets: Units = []
     distance = 0
@@ -134,16 +142,17 @@ def find_targets(unit: Unit, cave: Cave, units: Units) -> (Optional[Unit], Path)
     sort_units(selected_targets)
     if not selected_targets:
         return None, 0
-    return selected_targets[0], targets[selected_targets[0]]
+    return selected_targets[0], targets[selected_targets[0]][1:]
 
 
 sort_units(units)
 for u in units:
     print(u)
     target, path = find_targets(u, cave, units)
-    if len(path) > 1:
-        u.x, u.y = path[1]
+    # move
+    if path:
+        u.x, u.y = path[0]
     print(u)
-    print_map(cave, units, u)
+    print_map(cave, units, u, target, path)
     print(f"{len(path)}:", target)
     print()
