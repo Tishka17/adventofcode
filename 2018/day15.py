@@ -38,6 +38,7 @@ class Unit:
 
 Cave = List[List[str]]
 Units = List[Unit]
+Path = List[Tuple[int, int]]
 
 
 def sort_units(units: List[Unit]):
@@ -52,7 +53,10 @@ def print_map(cave: Cave, units: Units):
                     print(u.nation.value, end="")
                     break
             else:
-                print(point, end="")
+                if isinstance(point,str):
+                    print(point, end="")
+                else:
+                    print("?", end="")
         print()
 
 
@@ -74,36 +78,39 @@ print_map(cave, units)
 print()
 
 
-def use_point(map: Cave, points: List[Tuple[int, int, int]], enemy: Nation, units: Units, targets: Dict[Units, int],
+def use_point(map: Cave, points: List[Tuple[int, int, Path]], enemy: Nation, units: Units,
+              targets: Dict[Units, Path],
               x: int, y: int,
-              distance: int) -> bool:
+              path: Path) -> bool:
     for u in units:
         if u.x == x and u.y == y:
             if u.nation == enemy and not u in targets:
-                targets[u] = distance
+                targets[u] = path
             return True
 
     if map[x][y] == ".":
-        points.append((x, y, distance))
-        map[x][y] = distance
+        path = deepcopy(path)
+        path.append((x, y))
+        points.append((x, y, path))
+        map[x][y] = path
         return False
     return True
 
 
-def find_targets(unit: Unit, cave: Cave, units: Units) -> (Optional[Unit], int):
+def find_targets(unit: Unit, cave: Cave, units: Units) -> (Optional[Unit], Path):
     enemy = unit.nation.enemy()
-    points: List[Tuple[int, int, int]] = [(unit.x, unit.y, 0)]
+    points: List[Tuple[int, int, Path]] = [(unit.x, unit.y, [(unit.x, unit.y)])]
     map = deepcopy(cave)
     map[unit.x][unit.y] = 0
-    targets: Dict[Units, int] = {}
+    targets: Dict[Units, Path] = {}
     # calculate distances
     while points:
         new_points = []
-        for p in points:
-            res = use_point(map, new_points, enemy, units, targets, p[0] + 1, p[1], p[2] + 1)
-            res |= use_point(map, new_points, enemy, units, targets, p[0] - 1, p[1], p[2] + 1)
-            res |= use_point(map, new_points, enemy, units, targets, p[0], p[1] + 1, p[2] + 1)
-            res |= use_point(map, new_points, enemy, units, targets, p[0], p[1] - 1, p[2] + 1)
+        for x, y, path in points:
+            res = use_point(map, new_points, enemy, units, targets, x + 1, y, path)
+            res |= use_point(map, new_points, enemy, units, targets, x - 1, y, path)
+            res |= use_point(map, new_points, enemy, units, targets, x, y + 1, path)
+            res |= use_point(map, new_points, enemy, units, targets, x, y - 1, path)
         points = new_points
 
     print_map(map, units)
@@ -111,22 +118,22 @@ def find_targets(unit: Unit, cave: Cave, units: Units) -> (Optional[Unit], int):
     selected_targets: Units = []
     distance = 0
     for k, v in targets.items():
-        if not selected_targets or distance == v:
+        if not selected_targets or distance == len(v):
             selected_targets.append(k)
-            distance = v
-        elif v < distance:
+            distance = len(v)
+        elif len(v) < distance:
             selected_targets = [k]
-            distance = v
+            distance = len(v)
 
     sort_units(selected_targets)
     if not selected_targets:
         return None, 0
-    return selected_targets[0], distance
+    return selected_targets[0], targets[selected_targets[0]]
 
 
 sort_units(units)
 for u in units:
     print(u)
-    target, distance = find_targets(u, cave, units)
-    print(f"{distance}:", target)
+    target, path = find_targets(u, cave, units)
+    print(f"{len(path)}:", target)
     print()
