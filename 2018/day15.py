@@ -10,22 +10,51 @@ import sys
 from dataclasses import dataclass, field
 
 cave = """
-#######
-#E.G#.#
-#.#G..#
-#G.#.G#
-#G..#.#
-#...E.#
-#######
+################################
+###################..###########
+#################.....##########
+################.......#########
+################......#####...##
+#################.....G###.....#
+###########.#####....#####..####
+###########..####.#.###....#####
+##########.GG#.....##......#####
+###########.........#...G..#####
+###########....GG..........#####
+##########G.GG....G....GG..#####
+#########.G...#####........#####
+#######.G...G#######.E...E..####
+###########.#########.......####
+##########..#########......#####
+##...#####..#########.G....#####
+####..#..#..#########.#.....####
+###.G.#.....#########..#..#.E###
+#####........#######.......E.###
+#####.........#####.......######
+######............E....E..######
+#G.###..G.................######
+#..####...............#....#####
+#....E#...G.......######...#####
+#.............E..#######.#######
+###.........E#....##############
+######.E.....#..################
+#######..........###############
+#######......#.#################
+#####...#...####################
+################################
 """.splitlines(keepends=False)
 
 #
-with open("in15.txt") as f:
-    cave = f.read().splitlines(keepends=False)
+# with open("in15.txt") as f:
+#     cave = f.read().splitlines(keepends=False)
 
+UNDERLINE = "\033[4m"
 BOLD = "\033[1m"
 DIM = "\033[90m"
 BLUE = "\033[36m"
+BLUE2 = "\033[96m"
+BLUE3 = "\033[94m"
+BLUE4 = "\033[34m"
 GREEN = "\033[32m"
 YELLOW = "\033[93m"
 MAGENTA = "\033[35m"
@@ -69,15 +98,15 @@ def clear():
     print("\033c")
 
 
-def print_map(cave: Cave, units: Units, curent: Unit = None, enemy: Unit = None, path: Path = []):
+def print_map(cave: Cave, units: Units, curent: Unit = None, target: Tuple[int, int] = None, path: Path = []):
     for x, row in enumerate(cave):
+        row_units = []
         for y, point in enumerate(row):
             for u in units:
                 if u.x == x and u.y == y:
+                    row_units.append(u)
                     if u == curent:
                         print(BOLD + u.nation.value + NORMAL, end="")
-                    elif u == enemy:
-                        print(RED + BOLD + u.nation.value + NORMAL, end="")
                     elif 50 <= u.hit_points < 100:
                         print(GREEN + u.nation.value + NORMAL, end="")
                     elif 10 <= u.hit_points < 50:
@@ -91,12 +120,23 @@ def print_map(cave: Cave, units: Units, curent: Unit = None, enemy: Unit = None,
                     break
             else:
                 if isinstance(point, str):
-                    if (x, y) in path:
+                    if (x, y) == target:
+                        print(RED + BOLD + "+" + NORMAL, end="")
+                    elif (x, y) in path:
                         print(GREEN + "+" + NORMAL, end="")
                     else:
                         print(DIM + point + NORMAL, end="")
                 else:
-                    print(BLUE + "?" + NORMAL, end="")
+                    if len(point) > 30:
+                        print(BLUE4 + str(len(point) % 10) + NORMAL, end="")
+                    elif len(point) > 20:
+                        print(BLUE3 + str(len(point) % 10) + NORMAL, end="")
+                    elif len(point) > 10:
+                        print(BLUE2 + str(len(point) % 10) + NORMAL, end="")
+                    else:
+                        print(BLUE + str(len(point) % 10) + NORMAL, end="")
+        for u in row_units:
+            print(f"{str(u):20}", end="\t")
         print()
 
 
@@ -112,20 +152,24 @@ for x, row in enumerate(cave):
         except:
             pass
 
+g1 = units[6]
 print_map(cave, [])
 print()
 print_map(cave, units)
 print()
 
 
+def neighbours(x, y):
+    return [(x - 1, y), (x, y - 1), (x, y + 1), (x + 1, y), ]
+
+
 def use_point(map: Cave, points: List[Tuple[int, int, Path]], enemy: Nation, units: Units,
-              targets: Dict[Units, Path],
+              targets: Dict[Tuple[int, int], Path],
               x: int, y: int,
               path: Path) -> bool:
+    neigh = neighbours(x, y)
     for u in units:
-        if u.x == x and u.y == y:
-            if u.nation == enemy and not u in targets:
-                targets[u] = path
+        if u.x == x and u.y == y and u.hit_points > 0:
             return True
 
     if map[x][y] == ".":
@@ -133,6 +177,10 @@ def use_point(map: Cave, points: List[Tuple[int, int, Path]], enemy: Nation, uni
         path.append((x, y))
         points.append((x, y, path))
         map[x][y] = path
+
+        for u in units:
+            if u.hit_points > 0 and u.nation == enemy and (u.x, u.y) in neigh:
+                targets[(x, y)] = path
         return False
     return True
 
@@ -142,23 +190,21 @@ def find_targets(unit: Unit, cave: Cave, units: Units) -> (Optional[Unit], Path)
     points: List[Tuple[int, int, Path]] = [(unit.x, unit.y, [(unit.x, unit.y)])]
     map = deepcopy(cave)
     map[unit.x][unit.y] = 0
-    targets: Dict[Units, Path] = {}
+    targets: Dict[Tuple[int, int], Path] = {}
     # calculate distances
     while points:
         points.sort(key=lambda p: p[2])
         new_points = []
         for x, y, path in points:
             res = False
-            res |= use_point(map, new_points, enemy, units, targets, x - 1, y, path)
-            res |= use_point(map, new_points, enemy, units, targets, x, y - 1, path)
-            res |= use_point(map, new_points, enemy, units, targets, x, y + 1, path)
-            res |= use_point(map, new_points, enemy, units, targets, x + 1, y, path)
+            for x1, y1 in neighbours(x, y):
+                res |= use_point(map, new_points, enemy, units, targets, x1, y1, path)
         points = new_points
 
     # print_map(map, units, u)
     # print()
     # select target
-    selected_targets: Units = []
+    selected_targets: List[Tuple[int, int]] = []
     distance = 0
     for k, v in targets.items():
         if not selected_targets or distance == len(v):
@@ -168,18 +214,17 @@ def find_targets(unit: Unit, cave: Cave, units: Units) -> (Optional[Unit], Path)
             selected_targets = [k]
             distance = len(v)
 
-    sort_units(selected_targets)
+    selected_targets.sort()
     if not selected_targets:
         return None, []
     return selected_targets[0], targets[selected_targets[0]][1:]
 
 
-def find_attacked(unit: Unit, units: Units) -> Unit:
+def find_attacked(unit: Unit, units: Units) -> Optional[Unit]:
     res = []
+    neigh = neighbours(unit.x, unit.y)
     for u in units:
-        if u.nation == unit.nation.enemy() and u.hit_points > 0 and (
-                (u.x == unit.x and abs(u.y - unit.y)) == 1 or (u.y == unit.y and abs(u.x - unit.x) == 1)
-        ):
+        if u.nation == unit.nation.enemy() and u.hit_points > 0 and (u.x, u.y) in neigh:
             res.append(u)
     if res:
         sort_units(res, use_hp=True)
@@ -210,37 +255,45 @@ for n in itertools.count():
     print_map(cave, units)
     units = [u for u in units if u.hit_points > 0]
     sort_units(units)
-    print_hp(units)
+    # print_hp(units)
     for u in units:
         if u.hit_points <= 0:
             continue
         if not check_enemies(u, units):
-            print("Finish")
             break
         # print(u)
-        # search path to nearest target
-        target, path = find_targets(u, cave, units)
 
-        # move
-        if path:
-            u.x, u.y = path[0]
-        # print(u)
-        # print_map(cave, units, u, target, path)
-        # print()
-        # print(f"move {len(path)}:", target)
-
-        # select to attack
+        # try select to attack
         target = find_attacked(u, units)
+        if not target:
+            # search path to nearest target
+            target, path = find_targets(u, cave, units)
+
+            # move
+            # print(u)
+            # print_map(cave, units, u, target, path)
+            if path:
+                u.x, u.y = path[0]
+            # print()
+            # print(f"move {len(path)}:", target)
+
+            # select to attack
+            target = find_attacked(u, units)
         # print(f"attack:", target)
         if target:
             target.hit_points -= u.power
+            if target.hit_points <= 0:
+                print("Died: ", target, "at ", n)
             # print(f"after attack:", target)
         # print()
+        # input("Next?")
     else:
+        # input("Continue?")
         continue
     break
 
 print()
+print("Finish: ", u)
 print_map(cave, units)
 print_hp(units)
 total_hp = sum(u.hit_points for u in units if u.hit_points > 0)
