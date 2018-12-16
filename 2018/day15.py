@@ -71,6 +71,12 @@ class Nation(Enum):
             return self.Elf
         return self.Goblin
 
+    def power(self):
+        if self is self.Elf:
+            return 17
+        else:
+            return 3
+
 
 @dataclass(unsafe_hash=True)
 class Unit:
@@ -78,7 +84,6 @@ class Unit:
     nation: Nation = field(hash=False)
     x: int = field(hash=False)
     y: int = field(hash=False)
-    power: int = field(hash=False, default=3)
     hit_points: int = field(hash=False, default=200)
 
     def __str__(self):
@@ -281,9 +286,12 @@ for n in itertools.count():
             target = find_attacked(u, units)
         # print(f"attack:", target)
         if target:
-            target.hit_points -= u.power
+            target.hit_points -= u.nation.power()
             if target.hit_points <= 0:
                 print("Died: ", target, "at ", n)
+                if target.nation is Nation.Elf:
+                    print(RED + "Panic!!! Elf died" + NORMAL)
+                    break
             # print(f"after attack:", target)
         # print()
         # input("Next?")
