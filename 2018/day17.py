@@ -1,8 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import sys
+from dataclasses import dataclass
 from typing import List, Tuple
 
-from dataclasses import dataclass
+from PIL import Image
+
+UNDERLINE = "\033[4m"
+BOLD = "\033[1m"
+DIM = "\033[90m"
+BLUE = "\033[36m"
+BLUE2 = "\033[96m"
+BLUE3 = "\033[94m"
+BLUE4 = "\033[34m"
+GREEN = "\033[32m"
+YELLOW = "\033[93m"
+MAGENTA = "\033[35m"
+RED = "\033[91m"
+NORMAL = "\033[0m"
 
 
 @dataclass
@@ -32,6 +47,17 @@ spring_x = 500
 spring_y = 0
 
 data = """
+x=1, y=1..10
+y=10, x=1..10
+x=10, y=2..10
+x=3, y=3..7
+y=7, x=3..7
+x=7, y=3..7
+x=11, y=10
+x=17, y=10
+""".splitlines(keepends=False)
+
+data = """
 x=495, y=2..7
 y=7, x=495..501
 x=501, y=3..7
@@ -42,9 +68,25 @@ x=504, y=10..13
 y=13, x=498..504
 """.splitlines(keepends=False)
 
+# data = """
+# x=502, y=1..4
+# x=499, y=2..4
+# y=3, x=500..500
+# y=4, x=499..502
+# """.splitlines(keepends=False)
+
+
+# data = """
+# x=1, y=1..10
+# y=4, x=1..5
+# x=3..5, y=2
+# x=10, y=10
+# """.splitlines(keepends=False)
+
 
 with open("in17.txt") as f:
     data = f.read().splitlines(keepends=False)
+
 
 def load(data):
     ranges = []
@@ -69,15 +111,21 @@ def create_map(w, h) -> Map:
 
 def print_map(map: Map):
     for y, row in enumerate(map):
-        print(f"{y:3} ", *row, sep="")
+        print(f"{y:5} ", end="")
+        for s in row:
+            if s in "|~":
+                print(s, end="")
+            else:
+                print(s, end="")
+        print()
     print()
 
 
 ranges: Ranges = load(data)
 min_y = min(r.y0 for r in ranges)
 max_y = max(r.y1 for r in ranges)
-min_x = min(r.x0 for r in ranges)
-max_x = max(r.x1 for r in ranges)
+min_x = min(r.x0 for r in ranges) - 1
+max_x = max(r.x1 for r in ranges) + 1
 
 print(min_x, max_x, min_y, max_y)
 
@@ -96,6 +144,7 @@ for r in ranges:
         for y in range(r.y0, r.y1 + 1):
             map[y][x] = "#"
 
+
 # print_map(map)
 # print()
 
@@ -103,10 +152,11 @@ for r in ranges:
 def fill_left(map: Map, x: int, y: int):
     count = 0
     for x in range(x, -1, -1):
-        if map[y][x] == ".":
+        if map[y][x] != "#":
+            if map[y][x] == ".":
+                count += 1
             map[y][x] = "~"
-            count += 1
-            if map[y + 1][x] == ".":
+            if map[y + 1][x] != "#":
                 c, forever = fill_down(map, x, y + 1)
                 count += c
                 if forever:
@@ -116,13 +166,14 @@ def fill_left(map: Map, x: int, y: int):
     return count, True
 
 
-def fill_right(map: Map, x: int, y: int):
+def fill_right(map: Map, x0: int, y: int):
     count = 0
-    for x in range(x, len(map)):
-        if map[y][x] == ".":
+    for x in range(x0, len(map[0])):
+        if map[y][x] != "#":
+            if map[y][x] == ".":
+                count += 1
             map[y][x] = "~"
-            count += 1
-            if map[y + 1][x] == ".":
+            if map[y + 1][x] != "#" and (map[y + 1][x - 1] in "#" or x == x0):
                 c, forever = fill_down(map, x, y + 1)
                 count += c
                 if forever:
@@ -130,15 +181,26 @@ def fill_right(map: Map, x: int, y: int):
         else:
             return count, False
     return count, True
+
+
+cache = {}
 
 
 def fill_down(map: Map, x: int, y0: int) -> (int, bool):
+    if (x, y0) not in cache:
+        cache[(x, y0)] = fill_down_impl(map, x, y0)
+    return cache[(x, y0)]
+
+
+def fill_down_impl(map: Map, x: int, y0: int) -> (int, bool):
+    sys.stderr.write("down: %s %s\n" % (x, y0))
     count = 0
     max_y = len(map)
     for y in range(y0, len(map)):
-        if map[y][x] == ".":
+        if map[y][x] != "#":
+            if map[y][x] == ".":
+                count += 1
             map[y][x] = "|"
-            count += 1
             max_y = y
         else:
             break
@@ -146,13 +208,13 @@ def fill_down(map: Map, x: int, y0: int) -> (int, bool):
         return count, True
     # fill
     # print_map(map)
-    for y in range(max_y, y0, -1):
+    for y in range(max_y, y0 - 1, -1):
         forever = False
-        if x>0 and map[y][x - 1] == ".":
+        if x > 0 and map[y][x - 1] != "#":
             c, f = fill_left(map, x - 1, y)
             forever |= f
             count += c
-        if x<len(map[0]) and map[y][x + 1] == ".":
+        if x < len(map[0]) and map[y][x + 1] != "#":
             c, f = fill_right(map, x + 1, y)
             forever |= f
             count += c
@@ -166,3 +228,26 @@ try:
     print(c, f)
 finally:
     print_map(map)
+
+count = 0
+for row in map:
+    for s in row:
+        if s in "~|":
+            count += 1
+
+print("Result: ", count)
+
+
+img = Image.new("RGB", (len(map[0]), len(map)), 0x009999)
+
+for y, row in enumerate(map):
+    for x, s in enumerate(row):
+        if s in "|":
+            img.putpixel((x, y), 0xff0000)
+        elif s in "~":
+            img.putpixel((x, y), 0xff8888)
+        elif s == '#':
+            img.putpixel((x, y), 0x0000ff)
+img.save("o17.png")
+
+# 49608 > res
