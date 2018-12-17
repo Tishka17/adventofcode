@@ -43,8 +43,8 @@ y=13, x=498..504
 """.splitlines(keepends=False)
 
 
-# with open("in17.txt") as f:
-#     data = f.read().splitlines(keepends=False)
+with open("in17.txt") as f:
+    data = f.read().splitlines(keepends=False)
 
 def load(data):
     ranges = []
@@ -96,8 +96,8 @@ for r in ranges:
         for y in range(r.y0, r.y1 + 1):
             map[y][x] = "#"
 
-print_map(map)
-print()
+# print_map(map)
+# print()
 
 
 def fill_left(map: Map, x: int, y: int):
@@ -145,14 +145,14 @@ def fill_down(map: Map, x: int, y0: int) -> (int, bool):
     else:
         return count, True
     # fill
-    print_map(map)
+    # print_map(map)
     for y in range(max_y, y0, -1):
         forever = False
-        if map[y][x - 1] == ".":
+        if x>0 and map[y][x - 1] == ".":
             c, f = fill_left(map, x - 1, y)
             forever |= f
             count += c
-        if map[y][x + 1] == ".":
+        if x<len(map[0]) and map[y][x + 1] == ".":
             c, f = fill_right(map, x + 1, y)
             forever |= f
             count += c
@@ -161,6 +161,8 @@ def fill_down(map: Map, x: int, y0: int) -> (int, bool):
     return count, False
 
 
-c, f = fill_down(map, spring_x, spring_y)
-print(c, f)
-print_map(map)
+try:
+    c, f = fill_down(map, spring_x, spring_y)
+    print(c, f)
+finally:
+    print_map(map)
